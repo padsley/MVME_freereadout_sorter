@@ -83,10 +83,12 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
     std::vector<int> DAQChannel;
     std::vector<double> AmplitudeValue;
     std::vector<double> TimeValue;//relative to timestamp?
+    std::vector<double> TimeStamp;
     oak->Branch("EventMultiplicity",&EventMultiplicity);
     oak->Branch("DAQChannel",&DAQChannel);
     oak->Branch("AmplitudeValue",&AmplitudeValue);
     oak->Branch("TimeValue",&TimeValue);
+    oak->Branch("TimeStamp",&TimeStamp);
     
     TH1F *hCorrelations = new TH1F("hCorrelations","Correlation Time Histogram",20000,-10000,10000);
     
@@ -129,13 +131,13 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
         trin->SetBranchStatus("fTitle",0);
         
         
-        trin->SetBranchAddress("mdpp32_scp_amplitude[32]",&mdpp32_0_amplitude,&b_mdpp32_0_amplitude);
-        trin->SetBranchStatus("mdpp32_scp_amplitude[32]",0);
-        trin->SetBranchAddress("mdpp32_scp_channel_time[32]",&mdpp32_0_channel_time,&b_mdpp32_0_channel_time);
-        trin->SetBranchStatus("mdpp32_scp_channel_time[32]",0);
-        trin->SetBranchAddress("mdpp32_scp_trigger_time[2]",&mdpp32_0_trigger_time,&b_mdpp32_0_trigger_time);
-        trin->SetBranchStatus("mdpp32_scp_trigger_time[2]",0);
-        trin->SetBranchAddress("mdpp32_scp_module_timestamp[1]",mdpp32_0_timestamp,&b_mdpp32_0_timestamp);
+        trin->SetBranchAddress("mdpp32_scp_0_amplitude[32]",&mdpp32_0_amplitude,&b_mdpp32_0_amplitude);
+        trin->SetBranchStatus("mdpp32_scp_0_amplitude[32]",0);
+        trin->SetBranchAddress("mdpp32_scp_0_channel_time[32]",&mdpp32_0_channel_time,&b_mdpp32_0_channel_time);
+        trin->SetBranchStatus("mdpp32_scp_0_channel_time[32]",0);
+        trin->SetBranchAddress("mdpp32_scp_0_trigger_time[2]",&mdpp32_0_trigger_time,&b_mdpp32_0_trigger_time);
+        trin->SetBranchStatus("mdpp32_scp_0_trigger_time[2]",0);
+        trin->SetBranchAddress("mdpp32_scp_0_module_timestamp[1]",mdpp32_0_timestamp,&b_mdpp32_0_timestamp);
         //         if(VerboseFlag)std::cout  << "Checking branch status: " << trin->GetBranchStatus("mdpp32_scp.mdpp32_scp_module_timestamp[1]") << std::endl;
         
         //mdpp1
@@ -182,6 +184,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
         if(VerboseFlag)
             std::cout << "Number of Entries: " << nentries << std::endl;
         
+        int CountOfOutTimeEvents = 0;
         
         long i = 0;
         double TimeOfFirstEventToMatchAgainst = 0;
@@ -210,7 +213,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
             std::vector<int> ListOfModules;
             std::vector<double> ListOfTimestamps;
             
-            long PreviousTimestamp = 0;
+            double PreviousTimestamp = 0;
             
             if(ListOfEvents.size()!=0)std::cout << "not got an empty array!" << std::endl;
             if(ListOfModules.size()!=0)std::cout << "not got an empty array!" << std::endl;
@@ -220,11 +223,12 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
             DAQChannel.clear();
             AmplitudeValue.clear();
             TimeValue.clear();
+            TimeStamp.clear();
             
             //turn off the branches that aren't the timestamps to try to keep things moving
-            if(trin->GetBranchStatus("mdpp32_scp_amplitude[32]")==1)trin->SetBranchStatus("mdpp32_scp_amplitude[32]",0);
-            if(trin->GetBranchStatus("mdpp32_scp_channel_time[32]")==1)trin->SetBranchStatus("mdpp32_scp_channel_time[32]",0);
-            if(trin->GetBranchStatus("mdpp32_scp_trigger_time[2]")==1)trin->SetBranchStatus("mdpp32_scp_trigger_time[2]",0);
+            if(trin->GetBranchStatus("mdpp32_scp_0_amplitude[32]")==1)trin->SetBranchStatus("mdpp32_scp_0_amplitude[32]",0);
+            if(trin->GetBranchStatus("mdpp32_scp_0_channel_time[32]")==1)trin->SetBranchStatus("mdpp32_scp_0_channel_time[32]",0);
+            if(trin->GetBranchStatus("mdpp32_scp_0_trigger_time[2]")==1)trin->SetBranchStatus("mdpp32_scp_0_trigger_time[2]",0);
             if(trin->GetBranchStatus("mdpp32_scp_1_amplitude[32]")==1)trin->SetBranchStatus("mdpp32_scp_1_amplitude[32]",0);
             if(trin->GetBranchStatus("mdpp32_scp_1_channel_time[32]")==1)trin->SetBranchStatus("mdpp32_scp_1_channel_time[32]",0);
             if(trin->GetBranchStatus("mdpp32_scp_1_trigger_time[2]")==1)trin->SetBranchStatus("mdpp32_scp_1_trigger_time[2]",0);
@@ -248,15 +252,16 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
             
             trin->GetEntry(i);
             
-            if(mdpp32_0_timestamp[0]!=0 && !std::isnan(mdpp32_0_timestamp[0]))
+            if(mdpp32_0_timestamp[0]!=0 && !std::isnan(mdpp32_0_timestamp[0]))//mdpp0 for initial triggering event
             {
                 if(VerboseFlag)std::cout << mdpp32_0_timestamp[0] - TimeOfFirstEventToMatchAgainst << std::endl;
+                
                 if(TimeOfFirstEventToMatchAgainst == 0)TimeOfFirstEventToMatchAgainst = mdpp32_0_timestamp[0];
                 else if(mdpp32_0_timestamp[0] - TimeOfFirstEventToMatchAgainst < CorrelationTime)
                 {
                     if(VerboseFlag)std::cout << "Found an event in mdpp0 " << i << std::endl;
                     
-//                     std::cout << "Check list of events: " << std::find(ListOfEvents.begin(), ListOfEvents.end(), i) << std::endl;
+                    //                     std::cout << "Check list of events: " << std::find(ListOfEvents.begin(), ListOfEvents.end(), i) << std::endl;
                     
                     if(std::find(ListOfEvents.begin(), ListOfEvents.end(), i) == ListOfEvents.end())//== not != -> == only add the event if it isn't already in the list of events, != only add the event if it already is in the list!
                     {
@@ -270,14 +275,18 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                     
                     bool WrapAroundEvent = false;
                     
-//                     if(InitialTime_mdpp0 < PreviousTimestamp)
-//                     {
-//                         std::cout << "Current Timestamp is below the previous timestamp!" << std::endl;
-//                         std::cout << "PreviousTimestamp: " << PreviousTimestamp << "\t InitialTime: " << InitialTime_mdpp0 << std::endl << std::endl;
-//                         WrapAroundEvent = true;
-//                         
-//                         PreviousTimestamp -= 
-//                     }
+                    if(InitialTime_mdpp0 < PreviousTimestamp)
+                    {
+                        if(VerboseFlag)
+                        {
+                            std::cout << "Current Timestamp is below the previous timestamp!" << std::endl;
+                            std::cout << "PreviousTimestamp: " << PreviousTimestamp << "\t InitialTime: " << InitialTime_mdpp0 << "\t Difference: " << PreviousTimestamp - InitialTime_mdpp0 << std::endl << std::endl;
+                            WrapAroundEvent = true;
+                            
+                            if(abs(InitialTime_mdpp0 - PreviousTimestamp + pow(2,30)) < CorrelationTime)std::cout << "BUT we found that it's correlated around the end of the clock cycle: " << InitialTime_mdpp0 - PreviousTimestamp + pow(2,30) << " is within the correlation time " << CorrelationTime << std::endl;
+                        }
+                        CountOfOutTimeEvents++;
+                    }
                     
                     PreviousTimestamp = InitialTime_mdpp0;
                     
@@ -291,61 +300,66 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                         
                         if(mdpp32_0_timestamp[0]!=0 && !std::isnan(mdpp32_0_timestamp[0]) && j>i)//possible correlation with module 0
                         {
-                            if((mdpp32_0_timestamp[0] - InitialTime_mdpp0)<CorrelationTime && (mdpp32_0_timestamp[0] - InitialTime_mdpp0)>0)//check if within correlation time
+                            if(mdpp32_0_timestamp[0] - InitialTime_mdpp0<0)
                             {
-                                if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp0 with timestamp difference: " << mdpp32_0_timestamp[0] - InitialTime_mdpp0 << std::endl;
+                                if(VerboseFlag)std::cout << "Probably got a wraparound event!" << std::endl;
                                 
-                                if(std::find(ListOfEvents.begin(), ListOfEvents.end(), j) == ListOfEvents.end())
+                                if((mdpp32_0_timestamp[0] - InitialTime_mdpp0<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp0>0) || (mdpp32_0_timestamp[0] - InitialTime_mdpp0 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
-                                    ListOfEvents.push_back(j);
-                                    ListOfModules.push_back(0);
-                                    ListOfTimestamps.push_back(mdpp32_0_timestamp[0]);
+                                    if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp0 with timestamp difference: " << mdpp32_0_timestamp[0] - InitialTime_mdpp0 << std::endl;
+                                    
+                                    if(std::find(ListOfEvents.begin(), ListOfEvents.end(), j) == ListOfEvents.end())
+                                    {
+                                        ListOfEvents.push_back(j);
+                                        ListOfModules.push_back(0);
+                                        ListOfTimestamps.push_back(mdpp32_0_timestamp[0]);
+                                    }
                                 }
+                                else if(mdpp32_0_timestamp[0] - InitialTime_mdpp0 > CorrelationTime)
+                                    ReadForCorrelatedTimestamps = false;
+                                
                             }
-                            else if(mdpp32_0_timestamp[0] - InitialTime_mdpp0 > CorrelationTime)
-                                ReadForCorrelatedTimestamps = false;
                             
-                        }
-                        
-                        if(mdpp32_1_timestamp[0]!=0 && !std::isnan(mdpp32_1_timestamp[0]))//possible correlation with module 1
-                        {
-                            if(mdpp32_1_timestamp[0] - InitialTime_mdpp0<CorrelationTime && mdpp32_1_timestamp[0] - InitialTime_mdpp0>0)//check if within correlation time
+                            if(mdpp32_1_timestamp[0]!=0 && !std::isnan(mdpp32_1_timestamp[0]))//possible correlation with module 1
                             {
-                                if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp1 with timestamp difference: " << mdpp32_1_timestamp[0] - InitialTime_mdpp0 << std::endl;
-                                
-                                if(std::find(ListOfEvents.begin(), ListOfEvents.end(), j) == ListOfEvents.end())
+                                if((mdpp32_1_timestamp[0] - InitialTime_mdpp0<CorrelationTime && mdpp32_1_timestamp[0] - InitialTime_mdpp0>0) || (mdpp32_2_timestamp[0] - InitialTime_mdpp0 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
-                                    ListOfEvents.push_back(j);
-                                    ListOfModules.push_back(1);
-                                    ListOfTimestamps.push_back(mdpp32_1_timestamp[0]);
+                                    if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp1 with timestamp difference: " << mdpp32_1_timestamp[0] - InitialTime_mdpp0 << std::endl;
+                                    
+                                    if(std::find(ListOfEvents.begin(), ListOfEvents.end(), j) == ListOfEvents.end())
+                                    {
+                                        ListOfEvents.push_back(j);
+                                        ListOfModules.push_back(1);
+                                        ListOfTimestamps.push_back(mdpp32_1_timestamp[0]);
+                                    }
                                 }
+                                else if(mdpp32_1_timestamp[0] - InitialTime_mdpp0 > CorrelationTime)
+                                    ReadForCorrelatedTimestamps = false;
                             }
-                            else if(mdpp32_1_timestamp[0] - InitialTime_mdpp0 > CorrelationTime)
-                                ReadForCorrelatedTimestamps = false;
-                        }
-                        
-                        if(mdpp32_2_timestamp[0]!=0 && !std::isnan(mdpp32_2_timestamp[0]))//possible correlation with module 2
-                        {
-                            if(mdpp32_2_timestamp[0] - InitialTime_mdpp0<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp0>0)//check if within correlation time
+                            
+                            if(mdpp32_2_timestamp[0]!=0 && !std::isnan(mdpp32_2_timestamp[0]))//possible correlation with module 2
                             {
-                                if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp2 with timestamp difference: " << mdpp32_2_timestamp[0] - InitialTime_mdpp0 << std::endl;
-                                
-                                if(std::find(ListOfEvents.begin(), ListOfEvents.end(), j) == ListOfEvents.end())
+                                if((mdpp32_2_timestamp[0] - InitialTime_mdpp0<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp0>0) || (mdpp32_2_timestamp[0] - InitialTime_mdpp0 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
-                                    ListOfEvents.push_back(j);
-                                    ListOfModules.push_back(2);
-                                    ListOfTimestamps.push_back(mdpp32_2_timestamp[0]);
+                                    if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp2 with timestamp difference: " << mdpp32_2_timestamp[0] - InitialTime_mdpp0 << std::endl;
+                                    
+                                    if(std::find(ListOfEvents.begin(), ListOfEvents.end(), j) == ListOfEvents.end())
+                                    {
+                                        ListOfEvents.push_back(j);
+                                        ListOfModules.push_back(2);
+                                        ListOfTimestamps.push_back(mdpp32_2_timestamp[0]);
+                                    }
                                 }
+                                else if(mdpp32_2_timestamp[0] - InitialTime_mdpp0 > CorrelationTime)
+                                    ReadForCorrelatedTimestamps = false;
                             }
-                            else if(mdpp32_2_timestamp[0] - InitialTime_mdpp0 > CorrelationTime)
-                                ReadForCorrelatedTimestamps = false;
-                        }
-                        j++;//increment to the next event
-                    }//end of the loop looking for matching events in the next few triggers
-                }//end of test statement to see if future events match the timestamp in that detector
-                //                 else
-                //                     ReadForCorrelatedTimestamps = false;
-            }
+                            j++;//increment to the next event
+                        }//end of the loop looking for matching events in the next few triggers
+                    }//end of test statement to see if future events match the timestamp in that detector
+                    //                 else
+                    //                     ReadForCorrelatedTimestamps = false;
+                }//end of condition checking if within correlation time
+            }//end of condition checking if there's a valid hit in mdpp0
             //             
             if(mdpp32_1_timestamp[0]!=0 && !std::isnan(mdpp32_1_timestamp[0]))//MDPP1 for the initial triggering event
             {
@@ -370,9 +384,15 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                         
                         if(InitialTime_mdpp1 < PreviousTimestamp)
                         {
-                            std::cout << "Current Timestamp is below the previous timestamp!" << std::endl;
-                            std::cout << "PreviousTimestamp: " << PreviousTimestamp << "\t InitialTime: " << InitialTime_mdpp1 << std::endl << std::endl;
-                            WrapAroundEvent = true;
+                            if(VerboseFlag)
+                            {
+                                std::cout << "Current Timestamp is below the previous timestamp!" << std::endl;
+                                std::cout << "PreviousTimestamp: " << PreviousTimestamp << "\t InitialTime: " << InitialTime_mdpp1 << "\t Difference: " << PreviousTimestamp - InitialTime_mdpp1 << std::endl << std::endl;
+                                WrapAroundEvent = true;
+                                
+                                if(abs(InitialTime_mdpp1 - PreviousTimestamp + pow(2,30)) < CorrelationTime)std::cout << "BUT we found that it's correlated around the end of the clock cycle: " << InitialTime_mdpp1 - PreviousTimestamp + pow(2,30) << " is within the correlation time " << CorrelationTime << std::endl;
+                            }
+                            CountOfOutTimeEvents++;
                         }
                         
                         PreviousTimestamp = InitialTime_mdpp1;
@@ -387,7 +407,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                             
                             if(mdpp32_0_timestamp[0]!=0 && !std::isnan(mdpp32_0_timestamp[0]))//possible correlation with module 0
                             {
-                                if(mdpp32_0_timestamp[0] - InitialTime_mdpp1<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp1>0)//check if within correlation time
+                                if(((mdpp32_0_timestamp[0] - InitialTime_mdpp1<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp1>0)) || ((mdpp32_0_timestamp[0] - InitialTime_mdpp1 + pow(2,30)<CorrelationTime)))//check if within correlation time
                                 {
                                     if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp1 and event (" << i << ") mdpp0 with timestamp difference: " << mdpp32_0_timestamp[0] - InitialTime_mdpp1 << std::endl;
                                     
@@ -406,7 +426,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                             
                             if(mdpp32_1_timestamp[0]!=0 && !std::isnan(mdpp32_1_timestamp[0]) && j>i)//possible correlation with module 1
                             {
-                                if(mdpp32_1_timestamp[0] - InitialTime_mdpp1<CorrelationTime && mdpp32_1_timestamp[0] - InitialTime_mdpp1>0)//check if within correlation time
+                                if(((mdpp32_1_timestamp[0] - InitialTime_mdpp1<CorrelationTime && mdpp32_1_timestamp[0] - InitialTime_mdpp1>0)) || (mdpp32_1_timestamp[0] - InitialTime_mdpp1 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
                                     if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp1 and event (" << i << ") mdpp1 with timestamp difference: " << mdpp32_1_timestamp[0] - InitialTime_mdpp1 << std::endl;
                                     
@@ -423,7 +443,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                             
                             if(mdpp32_2_timestamp[0]!=0 && !std::isnan(mdpp32_2_timestamp[0]))//possible correlation with module 2
                             {
-                                if(mdpp32_2_timestamp[0] - InitialTime_mdpp1<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp1>0)//check if within correlation time
+                                if((mdpp32_2_timestamp[0] - InitialTime_mdpp1<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp1>0) || (mdpp32_2_timestamp[0] - InitialTime_mdpp1 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
                                     if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp1 and event (" << i << ") mdpp2 with timestamp difference: " << mdpp32_2_timestamp[0] - InitialTime_mdpp1 << std::endl;
                                     
@@ -465,9 +485,15 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                         
                         if(InitialTime_mdpp2 < PreviousTimestamp)
                         {
-                            std::cout << "Current Timestamp is below the previous timestamp!" << std::endl;
-                            std::cout << "PreviousTimestamp: " << PreviousTimestamp << "\t InitialTime: " << InitialTime_mdpp2 << std::endl << std::endl;
+                            if(VerboseFlag)
+                            {
+                                std::cout << "Current Timestamp is below the previous timestamp!" << std::endl;
+                                std::cout << "PreviousTimestamp: " << PreviousTimestamp << "\t InitialTime: " << InitialTime_mdpp2 << "\t Difference: " << PreviousTimestamp - InitialTime_mdpp2 << std::endl << std::endl;
+                                
+                                if(abs(InitialTime_mdpp2 - PreviousTimestamp + pow(2,30)) < CorrelationTime)std::cout << "BUT we found that it's correlated around the end of the clock cycle: " << InitialTime_mdpp2 - PreviousTimestamp + pow(2,30) << " is within the correlation time " << CorrelationTime << std::endl;
+                            }
                             
+                            CountOfOutTimeEvents++;
                         }
                         
                         PreviousTimestamp = InitialTime_mdpp2;
@@ -482,7 +508,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                             
                             if(mdpp32_0_timestamp[0]!=0 && !std::isnan(mdpp32_0_timestamp[0]))//possible correlation with module 0
                             {
-                                if(mdpp32_0_timestamp[0] - InitialTime_mdpp2<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp2>0)//check if within correlation time
+                                if((mdpp32_0_timestamp[0] - InitialTime_mdpp2<CorrelationTime && mdpp32_0_timestamp[0] - InitialTime_mdpp2>0) || (mdpp32_0_timestamp[0] - InitialTime_mdpp2 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
                                     if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp0 and event (" << i << ") mdpp1 with timestamp difference: " << mdpp32_0_timestamp[0] - InitialTime_mdpp2 << std::endl;
                                     
@@ -499,7 +525,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                             
                             if(mdpp32_1_timestamp[0]!=0 && !std::isnan(mdpp32_1_timestamp[0]))//possible correlation with module 1
                             {
-                                if(mdpp32_1_timestamp[0] - InitialTime_mdpp2<CorrelationTime && mdpp32_1_timestamp[0] - InitialTime_mdpp2>0)//check if within correlation time
+                                if((mdpp32_1_timestamp[0] - InitialTime_mdpp2<CorrelationTime && mdpp32_1_timestamp[0] - InitialTime_mdpp2>0) || (mdpp32_1_timestamp[0] - InitialTime_mdpp2 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
                                     if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp2 and event (" << i << ") mdpp1 with timestamp difference: " << mdpp32_1_timestamp[0] - InitialTime_mdpp2 << std::endl;
                                     
@@ -516,7 +542,7 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                             
                             if(mdpp32_2_timestamp[0]!=0 && !std::isnan(mdpp32_2_timestamp[0]) && j>i)//possible correlation with module 2
                             {
-                                if(mdpp32_2_timestamp[0] - InitialTime_mdpp2<CorrelationTime && mdpp32_2_timestamp[0] - InitialTime_mdpp2>0)//check if within correlation time
+                                if((mdpp32_2_timestamp[0] - InitialTime_mdpp2<CorrelationTime && mdpp32_2_timestamp[0] - InitialTime_mdpp2>0) || (mdpp32_2_timestamp[0] - InitialTime_mdpp2 + pow(2,30)<CorrelationTime))//check if within correlation time
                                 {
                                     if(VerboseFlag)std::cout << "Found a matching event (" << j << ") between mdpp2 and event (" << i << ") mdpp2 with timestamp difference: " << mdpp32_2_timestamp[0] - InitialTime_mdpp2 << std::endl;
                                     
@@ -543,24 +569,24 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
             {
                 if(VerboseFlag)std::cout << "k: " << k << "\tEvent: " << ListOfEvents.at(k) << "\tModule: " << ListOfModules.at(k) << std::endl;
                 
-//                 if(ListOfModules.at(k)==0)
-//                 {
-                    trin->SetBranchStatus("mdpp32_scp_amplitude[32]",1);
-                    trin->SetBranchStatus("mdpp32_scp_channel_time[32]",1);
-                    trin->SetBranchStatus("mdpp32_scp_trigger_time[2]",1);
-//                 }
-//                 if(ListOfModules.at(k)==1)
-//                 {
-                    trin->SetBranchStatus("mdpp32_scp_1_amplitude[32]",1);
-                    trin->SetBranchStatus("mdpp32_scp_1_channel_time[32]",1);
-                    trin->SetBranchStatus("mdpp32_scp_1_trigger_time[2]",1);
-//                 }
-// //                 if(ListOfModules.at(k)==2)
-//                 {
-                    trin->SetBranchStatus("mdpp32_scp_2_amplitude[32]",1);
-                    trin->SetBranchStatus("mdpp32_scp_2_channel_time[32]",1);
-                    trin->SetBranchStatus("mdpp32_scp_2_trigger_time[2]",1);
-// //                 }
+                //                 if(ListOfModules.at(k)==0)
+                //                 {
+                trin->SetBranchStatus("mdpp32_scp_0_amplitude[32]",1);
+                trin->SetBranchStatus("mdpp32_scp_0_channel_time[32]",1);
+                trin->SetBranchStatus("mdpp32_scp_0_trigger_time[2]",1);
+                //                 }
+                //                 if(ListOfModules.at(k)==1)
+                //                 {
+                trin->SetBranchStatus("mdpp32_scp_1_amplitude[32]",1);
+                trin->SetBranchStatus("mdpp32_scp_1_channel_time[32]",1);
+                trin->SetBranchStatus("mdpp32_scp_1_trigger_time[2]",1);
+                //                 }
+                // //                 if(ListOfModules.at(k)==2)
+                //                 {
+                trin->SetBranchStatus("mdpp32_scp_2_amplitude[32]",1);
+                trin->SetBranchStatus("mdpp32_scp_2_channel_time[32]",1);
+                trin->SetBranchStatus("mdpp32_scp_2_trigger_time[2]",1);
+                // //                 }
                 
                 trin->GetEntry(ListOfEvents.at(k));
                 //                 if(k>0)
@@ -575,23 +601,25 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                 
                 for(int chan = 0;chan<32;chan++)
                 {
-//                     std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_0_amplitude[chan] << "\tTime: " << mdpp32_0_channel_time[chan] << std::endl;
-//                     std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_1_amplitude[chan] << "\tTime: " << mdpp32_1_channel_time[chan] << std::endl;
-//                     std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_2_amplitude[chan] << "\tTime: " << mdpp32_2_channel_time[chan] << std::endl;
+                    //                     std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_0_amplitude[chan] << "\tTime: " << mdpp32_0_channel_time[chan] << std::endl;
+                    //                     std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_1_amplitude[chan] << "\tTime: " << mdpp32_1_channel_time[chan] << std::endl;
+                    //                     std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_2_amplitude[chan] << "\tTime: " << mdpp32_2_channel_time[chan] << std::endl;
                     
                     if((mdpp32_0_timestamp[0]!=0 &&!std::isnan(mdpp32_0_amplitude[chan]) && mdpp32_0_amplitude[chan] > 0))
                     {
                         DAQChannel.push_back(chan);
                         AmplitudeValue.push_back(mdpp32_0_amplitude[chan]);
                         TimeValue.push_back(mdpp32_0_channel_time[chan]);
-//                         if(VerboseFlag)std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_0_amplitude[chan] << "\tTime: " << mdpp32_0_channel_time[chan] << std::endl;
+                        TimeStamp.push_back(mdpp32_0_timestamp[0]);
+                        //                         if(VerboseFlag)std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_0_amplitude[chan] << "\tTime: " << mdpp32_0_channel_time[chan] << std::endl;
                     }
                     if((mdpp32_1_timestamp[0]!=0 && !std::isnan(mdpp32_1_amplitude[chan]) && mdpp32_1_amplitude[chan] > 0))
                     {
                         DAQChannel.push_back(32+chan);
                         AmplitudeValue.push_back(mdpp32_1_amplitude[chan]);
                         TimeValue.push_back(mdpp32_1_channel_time[chan]);
-//                         if(VerboseFlag)std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_1_amplitude[chan] << "\tTime: " << mdpp32_1_channel_time[chan] << std::endl;
+                        TimeStamp.push_back(mdpp32_1_timestamp[0]);
+                        //                         if(VerboseFlag)std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_1_amplitude[chan] << "\tTime: " << mdpp32_1_channel_time[chan] << std::endl;
                         
                     }
                     if((mdpp32_2_timestamp[0]!=0 && !std::isnan(mdpp32_2_amplitude[chan]) && mdpp32_2_amplitude[chan] > 0))
@@ -599,7 +627,8 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
                         DAQChannel.push_back(64+chan);
                         AmplitudeValue.push_back(mdpp32_2_amplitude[chan]);
                         TimeValue.push_back(mdpp32_2_channel_time[chan]);
-//                         if(VerboseFlag)std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_2_amplitude[chan] << "\tTime: " << mdpp32_2_channel_time[chan] << std::endl;
+                        TimeStamp.push_back(mdpp32_2_timestamp[0]);
+                        //                         if(VerboseFlag)std::cout << "channel: " << chan << "\tAmplitude: " << mdpp32_2_amplitude[chan] << "\tTime: " << mdpp32_2_channel_time[chan] << std::endl;
                     }
                 }
                 
@@ -626,6 +655,8 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
             ListOfTimestamps.clear();
         }//end of loop over the entries
         std::cout << "Finished processing the input ROOT TTree" << std::endl;
+        
+        std::cout << "Proportion of out-of-time events: " << (double)CountOfOutTimeEvents/nentries * 100. << std::endl;
     }//end of check that the input file is open
     else
         std::cout << "File not found" << std::endl;
@@ -636,6 +667,6 @@ void MVME_freereadout_sorter(TString InputName, double CorrelationTime = 2, std:
     hCorrelations->Write();
     std::cout << "Writing the output ROOT TTree with correlated events (hopefully!)" << std::endl;
     oak->Write();
-    
+
     fOutput->Close();
 }
